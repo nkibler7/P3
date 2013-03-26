@@ -1,9 +1,8 @@
 /**
  * This class represents an internal node in the tree. This node does not store
- * a sequence value, but points to other InternalNode or LeafNode objects.
+ * a sequence id or handle, but points to other InternalNode or LeafNode objects.
  * It holds references to five different nodes (one for each letter ACGT and one
  * to signify the end of the sequence, AKA an exact match thus far).
- *
  */
 public class InternalNode extends DNATreeNode {
 	/**
@@ -19,13 +18,11 @@ public class InternalNode extends DNATreeNode {
 	 * @param level - the level of the node
 	 */
 	public InternalNode(FlyweightNode fw, int level) {
-		
 		a = fw;
 		c = fw;
 		g = fw;
 		t = fw;
 		end = fw;
-		
 		setLevel(level);
 	}
 	
@@ -36,7 +33,6 @@ public class InternalNode extends DNATreeNode {
 	 * @param pos - the position to add it at (a, c, g, t, or e for 'end')
 	 */
 	public void addNode(DNATreeNode node, char pos) {
-		
 		if (pos == 'A') {
 			a = node;
 		} else if (pos == 'C') {
@@ -58,7 +54,6 @@ public class InternalNode extends DNATreeNode {
 	 * @return the DNATreeNode stored at the specified location
 	 */
 	public DNATreeNode getNode(char pos) {
-		
 		if (pos == 'A') {
 			return a;
 		} else if (pos == 'C') {

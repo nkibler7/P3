@@ -1,10 +1,10 @@
 import java.text.DecimalFormat;
 
 /**
- * DNA Tree class for Project 2.  This class represents the
- * main body of the DNA Tree, which stores DNA sequences in
- * a tree structure.  Contains a root and flyweight node, as
- * well as several methods to interface with the DNA Tree.
+ * DNA Tree class for Project 3.  This class represents the
+ * main body of the DNA Tree, which stores DNA sequences id's
+ * in a tree structure.  Contains a root and flyweight node,
+ * as well as several methods to interface with the DNA Tree.
  * 
  * @author Chris Schweinhart (schwein)
  * @author Nate Kibler (nkibler7)
@@ -38,20 +38,23 @@ public class DNATree {
 		root = fw;
 	}
 
+	// TODO fix insert method
 	/**
 	 * Inserts a sequence into the tree.  The method will try
 	 * to find the closest node for the sequence to live at
 	 * without ambiguity, moving around the other nodes as needed.
-	 * Will return the level of the tree, or -1 if unsuccessful.
+	 * Adds the given handle to the resulting node.  Will return
+	 * the level of the tree, or -1 if unsuccessful.
 	 * 
-	 * @param sequence - the new DNA sequence to insert
+	 * @param sequence - the new DNA sequence id to insert
+	 * @param handle - the memory handle for the sequence id
 	 * @return the level of the new node, or -1 if unsuccessful
 	 */
-	public int insert(String sequence) 
+	public int insert(String sequence, Handle handle) 
 	{
 		// Check if the root is flyweight (empty tree)
 		if (root instanceof FlyweightNode) {
-			root = new LeafNode(sequence, 0);
+			root = new LeafNode(sequence, 0, handle);
 			return 0;
 		}
 		
@@ -60,7 +63,7 @@ public class DNATree {
 			return handleLeafSituation(sequence);
 		}
 		
-		return insert(sequence, (InternalNode)root);
+		return insert(sequence, (InternalNode)root, handle);
 	}
 
 	/**
@@ -102,12 +105,23 @@ public class DNATree {
 		return i + 1;
 	}
 
-	private int insert(String sequence, InternalNode node)
+	/**
+	 * Recursive helper method to insert a sequence id into the
+	 * tree.  Uses the current node to insert if the child is
+	 * free or a leaf node.  Otherwise, recursively calls for
+	 * internal nodes.
+	 * 
+	 * @param sequence - the new DNA sequence id to insert
+	 * @param node - the current node in question
+	 * @param handle - the memory handle for the sequence id
+	 * @return the level of the new node, or -1 if unsuccessful
+	 */
+	private int insert(String sequence, InternalNode node, Handle handle)
 	{
 		DNATreeNode child = node.getNode(sequence.charAt(node.getLevel()));
 
 		if (child instanceof FlyweightNode) {
-			node.addNode(new LeafNode(sequence, node.getLevel() + 1), sequence.charAt(node.getLevel()));
+			node.addNode(new LeafNode(sequence, node.getLevel() + 1, handle), sequence.charAt(node.getLevel()));
 			return node.getLevel() + 1;
 		}
 
@@ -173,27 +187,28 @@ public class DNATree {
 
 	/**
 	 * Removes the given sequence from the tree, if it is
-	 * found.  Returns true if the sequence was found and
-	 * removed, and false otherwise.  Method will rebuild
-	 * the area around the removed Leaf Node if needed.
+	 * found.  Returns the handle for the removed node, or
+	 * null otherwise.  Method will rebuild the area around
+	 * the removed Leaf Node if needed.
 	 * 
-	 * @param sequence - the DNA sequence to be removed
-	 * @return whether or not the remove was successful
+	 * @param sequence - the DNA sequence id to be removed
+	 * @return the Handle for the removed node, or null
+	 * if not found
 	 */
-	public boolean remove(String sequence) {
+	public Handle remove(String sequence) {
 		
 		// Check if root is flyweight (empty tree)
 		if (root instanceof FlyweightNode) {
-			return false;
+			return null;
 		}
 		
 		// Check if there is only one node in the tree
 		if (root instanceof LeafNode) {
-			if (((LeafNode) root).getSequence().equals(sequence)) {
+			if (((LeafNode)root).getSequence().equals(sequence)) {
 				root = fw;
-				return true;
+				return ((LeafNode)root).getHandle();
 			}
-			return false;
+			return null;
 		}
 		
 		return findAndRemove(sequence, (InternalNode)root);
@@ -207,29 +222,31 @@ public class DNATree {
 	 * 
 	 * @param sequence - the sequence to be removed
 	 * @param node - the internal node in question
-	 * @return whether or not the remove was successful
+	 * @return - the Handle for the removed node, or null
+	 * if not found
 	 */
-	private boolean findAndRemove(String sequence, InternalNode node) {
+	private Handle findAndRemove(String sequence, InternalNode node) {
 		
 		char character = node.getLevel() >= sequence.length() ? 'E' : sequence.charAt(node.getLevel());
 		DNATreeNode nextNode = node.getNode(character);
 		
 		// Determine if the node we're looking for is in the tree
 		if (nextNode instanceof FlyweightNode) {
-			return false;
+			return null;
 		}
 		
 		// Check if the node we're looking for is a match
 		if (nextNode instanceof LeafNode) {
-			if (((LeafNode) nextNode).getSequence().equals(sequence)) {
+			if (((LeafNode)nextNode).getSequence().equals(sequence)) {
 				node.addNode(fw, character);
-				return true;
+				return ((LeafNode)nextNode).getHandle();
 			}
-			return false;
+			return null;
 		}
 		
 		// Recursive case to handle internal node
-		if (findAndRemove(sequence, (InternalNode) nextNode)) {
+		Handle handle = findAndRemove(sequence, (InternalNode) nextNode);
+		if (handle != null) {
 			// Handle cases with internal node with only one child
 			// This is when an internal node is no longer needed,
 			// since it can just be replaced by its only non-empty child
@@ -239,121 +256,16 @@ public class DNATree {
 					DNATreeNode child = ((InternalNode)nextNode).getNode(currentChar);
 					if (child instanceof LeafNode) {
 						node.addNode(child, character);
-						return true;
+						return handle;
 					}
 				}
 			}
-			return true;
+			return handle;
 		}
-		return true;
+		return handle;
 	}
 
-
-	/**
-	 * Method to print out various things about a tree.  Will always
-	 * give the basic structure via indentation and I/E/sequences.
-	 * Flags are for extra options, such as sequence lengths or
-	 * letter statistics.
-	 * 
-	 * @param lengths - whether or not to print sequence lengths
-	 * @param stats - whether or not to print sequence statistics
-	 * @return the print for the entire tree
-	 */
-	public String print(boolean lengths, boolean stats) {
-
-		if (root instanceof FlyweightNode) {
-			return "Print called on empty tree.";
-		}
-		
-		return print(root, null, lengths, stats) + "\n";
-	}
-
-	/**
-	 * Helper method for the print method.  Will recursively perform
-	 * a preorder traversal, hitting all the nodes to print them.
-	 * 
-	 * @param node - the current node to print
-	 * @param lengths - whether or not to print sequence lengths
-	 * @param stats - whether or not to print sequence statistics
-	 * @return the print for this node and any children
-	 */
-	private String print(DNATreeNode node, DNATreeNode parent, boolean lengths, boolean stats) {
-
-		String output = "\n";
-
-		// Determine node level
-		int level;
-		if (node instanceof FlyweightNode) {
-			level = parent.getLevel() + 1;
-		} else {
-			level = node.getLevel();
-		}
-		
-		// Add indentation for node level
-		for (int i = 0; i < level; i++) {
-			output += "  ";
-		}
-
-		// Case breakdown
-		if (node instanceof FlyweightNode) {
-			output += "E";
-		} else if(node instanceof LeafNode) {
-			String sequence = ((LeafNode)node).getSequence();
-			output += sequence;
-
-			// Handle print lengths command
-			if (lengths) {
-				output += ": length " + sequence.length();
-			}
-
-			// Handle print stats command
-			if (stats) {
-				int[] letters = new int[4];
-				double[] frequencies = new double[4];
-				
-				for (int i = 0; i < 4; i++) {
-					letters[i] = 0;
-				}
-
-				// Collect ACGT letter counts
-				for (char c : sequence.toLowerCase().toCharArray()) {
-					if (c == 'a') {
-						letters[0]++;
-					} else if (c == 'c') {
-						letters[1]++;
-					} else if (c == 'g') {
-						letters[2]++;
-					} else if (c == 't') {
-						letters[3]++;
-					}
-				}
-
-				for (int i = 0; i < 4; i++) {
-					frequencies[i] = 100.0 * letters[i] / sequence.length();
-				}
-
-				DecimalFormat decim = new DecimalFormat("0.00");
-
-				output += ": ";
-				output += "A(" + decim.format(frequencies[0]) + "), ";
-				output += "C(" + decim.format(frequencies[1]) + "), ";
-				output += "G(" + decim.format(frequencies[2]) + "), ";
-				output += "T(" + decim.format(frequencies[3]) + ")";
-			}
-		} else {
-			output += "I";
-
-			// Recursive calls to children
-			output += print(((InternalNode)node).getNode('A'), node, lengths, stats);
-			output += print(((InternalNode)node).getNode('C'), node, lengths, stats);
-			output += print(((InternalNode)node).getNode('G'), node, lengths, stats);
-			output += print(((InternalNode)node).getNode('T'), node, lengths, stats);
-			output += print(((InternalNode)node).getNode('E'), node, lengths, stats);
-		}
-
-		return output;
-	}
-
+	// TODO Fix the search methods
 	/**
 	 * Method to search the tree for a particular pattern.  There
 	 * are two types of patterns allowed: (1) prefix search, and
@@ -503,6 +415,48 @@ public class DNATree {
 
 		visited[0]++;
 
+		return output;
+	}
+	
+	/**
+	 * Method to print out the sequence id's of the tree.
+	 * Performs a simple preorder traversal for all the
+	 * nodes to print out sequence id's.
+	 * 
+	 * @return - the string printing of the sequence id's
+	 */
+	public String toString() {
+		return "Sequence IDs:\n" + print(root);
+	}
+	
+	/**
+	 * Helper method for the toString method.  Will recursively perform
+	 * a preorder traversal, hitting all the nodes to print them.
+	 * 
+	 * @param node - the current node to print
+	 * @return the print for this node and any children
+	 */
+	private String print(DNATreeNode node) {
+		
+		// Check if empty node
+		if (node instanceof FlyweightNode) {
+			return null;
+		}
+		
+		// Check if leaf node
+		if(node instanceof LeafNode) {
+			return ((LeafNode)node).getSequence() + "\n";
+		}
+
+		String output = "";
+		
+		// Recursive calls to children
+		output += print(((InternalNode)node).getNode('A'));
+		output += print(((InternalNode)node).getNode('C'));
+		output += print(((InternalNode)node).getNode('G'));
+		output += print(((InternalNode)node).getNode('T'));
+		output += print(((InternalNode)node).getNode('E'));
+		
 		return output;
 	}
 }

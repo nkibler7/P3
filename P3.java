@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Scanner;
 
 // On my honor:
 //
@@ -51,12 +52,28 @@ public class P3 {
 	private static final String SEARCH_PATTERN = "^ *(search|SEARCH) *[ACGT]+[$]? *$";
 	
 	/**
+	 * Additional string patterns for result matching.  These are
+	 * used for parsing the search results from the DNA Tree to use
+	 * with the database manager.
+	 */
+	private static final String KEY_PATTERN = "^Key: [ACGT]+$";
+	private static final String HANDLE_PATTERN = "^\\[[0-9]+, [1-9][0-9]*\\]$";
+	
+	/**
 	 * Member field for DNATree tree.  This tree represents the
 	 * sequences to be stored in memory, with each branch for
 	 * one letter of a DNA sequence.  For more information, look
 	 * in the DNATree.java file.
 	 */
 	private static DNATree tree;
+	
+	/**
+	 * Member field for DatabaseManager.  This memory manager will
+	 * keep track of the bytes in memory for each DNA sequence.
+	 * Also keeps track of the free memory blocks.  For more
+	 * information, look in the DatabaseManager.java file.
+	 */
+	private static DatabaseManager dbm;
 	
 	/**
 	 * Main method to control data flow.  This function takes
@@ -78,6 +95,7 @@ public class P3 {
 		String fileName = args[0];
 		
 		tree = new DNATree();
+		dbm = new DatabaseManager();
 		
 		// Main command line reading
 		try {
@@ -90,13 +108,20 @@ public class P3 {
 			while ((line = in.readLine()) != null) {
 				if (line.matches(INSERT_PATTERN)) {
 					
-					// Parse out the sequence from the command line
+					// Parse out the sequence id from the command line
 					int index = Math.max(line.indexOf("r"), line.indexOf("R")) + 2;
 					String sequence = line.substring(index);
 					sequence = sequence.trim();
 					
-					// Add to tree and output error message if found
-					int result = tree.insert(sequence);
+					// Get the next line for the sequence
+					String entry = in.readLine();
+					
+					// Add to the dbm
+					Handle handle = dbm.insert(entry);
+					
+					// Add to tree
+					int result = tree.insert(sequence, handle);
+					
 					if(result < 0) {
 						System.out.println("Sequence " + sequence + " already in tree.");
 					} else {
@@ -104,28 +129,65 @@ public class P3 {
 					}
 				} else if (line.matches(REMOVE_PATTERN)) {
 					
-					// Parse out the sequence from the command line
+					// Parse out the sequence id from the command line
 					int index = Math.max(line.indexOf("v"), line.indexOf("V")) + 2;
 					String sequence = line.substring(index);
 					sequence = sequence.trim();
 					
-					// Remove from tree and output error message if not found
-					if(!tree.remove(sequence)) {
+					// Remove sequence id from tree
+					Handle handle = tree.remove(sequence);
+					
+					// Remove sequence from dbm
+					if(handle == null) {
 						System.out.println("Sequence " + sequence + " not found in tree.");
+					} else {
+						dbm.remove(handle);
 					}
 				} else if (line.matches(PRINT_PATTERN)) {
 					
 					// Output the tree
-					System.out.println(tree.print(false, false));
+					System.out.println(tree);
+					
+					// Output free blocks
+					System.out.println(dbm);
 				} else if (line.matches(SEARCH_PATTERN)) {
 					
-					// Parse out the sequence from the command line
+					// Parse out the sequence id from the command line
 					int index = Math.max(line.indexOf("h"), line.indexOf("H")) + 1;
 					String sequence = line.substring(index);
 					sequence = sequence.trim();
 					
-					// Search the tree and output results
-					System.out.println(tree.search(sequence));
+					// Search the tree for handles
+					String results = tree.search(sequence);
+					Scanner scan = new Scanner(results);
+					String output = scan.nextLine() + "\n";
+					
+					// Augment output with results from dbm
+					String entry;
+					int offset, length;
+					Handle handle;
+					while (scan.hasNextLine()) {
+						entry = scan.nextLine();
+						
+						if (entry.matches(KEY_PATTERN)) {
+							output += entry + "\n";
+						} else if (entry.matches(HANDLE_PATTERN)) {
+							
+							// Parse out offset and length
+							offset = Integer.parseInt(entry.substring(entry.indexOf('['), entry.indexOf(',')));
+							length = Integer.parseInt(entry.substring(entry.indexOf(','), entry.indexOf(']')));
+							
+							// Create handle and use it to query database
+							handle = new Handle(offset, length);
+							output += "Sequence:\n" + dbm.getEntry(handle) + "\n";
+						} else {
+							continue;
+						}
+					}
+					
+					scan.close();
+					
+					System.out.println(output);
 				} else {
 					continue;
 				}

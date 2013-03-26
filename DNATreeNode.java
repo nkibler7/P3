@@ -2,7 +2,6 @@
  * This class represents a general node in the DNA tree.  It is
  * abstract, and so cannot ever be instantiated.  To see more
  * specific uses of child nodes, see their own files.
- *
  */
 public abstract class DNATreeNode {
 	/**
@@ -15,8 +14,7 @@ public abstract class DNATreeNode {
 	 * 
 	 * @return - the level of the node
 	 */
-	public int getLevel()
-	{
+	public int getLevel() {
 		return level;
 	}
 	
@@ -25,8 +23,7 @@ public abstract class DNATreeNode {
 	 * 
 	 * @param l - the new level for the node
 	 */
-	public void setLevel(int l)
-	{
+	public void setLevel(int l) {
 		level = l;
 	}
 }
