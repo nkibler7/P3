@@ -1,10 +1,10 @@
-import java.text.DecimalFormat;
-
 /**
  * DNA Tree class for Project 3.  This class represents the
  * main body of the DNA Tree, which stores DNA sequences id's
  * in a tree structure.  Contains a root and flyweight node,
  * as well as several methods to interface with the DNA Tree.
+ * This is a modification of a similar DNA Tree from Project
+ * 2, with several methods changed.
  * 
  * @author Chris Schweinhart (schwein)
  * @author Nate Kibler (nkibler7)
@@ -38,7 +38,6 @@ public class DNATree {
 		root = fw;
 	}
 
-	// TODO fix insert method
 	/**
 	 * Inserts a sequence into the tree.  The method will try
 	 * to find the closest node for the sequence to live at
@@ -60,51 +59,22 @@ public class DNATree {
 		
 		// Check if there is only one node in the tree
 		if (root instanceof LeafNode) {
-			return handleLeafSituation(sequence);
+			
+			// Check if the sequence is already in the tree
+			if (((LeafNode) root).getSequence().equals(sequence)) {
+				return -1;
+			}
+			
+			// Replace leaf node with internal node and downshift
+			InternalNode temp = new InternalNode(fw, 0);
+			temp.addNode(root, ((LeafNode) root).getSequence().charAt(0));
+			root.setLevel(1);
+			root = temp;
 		}
 		
 		return insert(sequence, (InternalNode)root, handle);
 	}
-
-	/**
-	 * Builds a tree structure from a starting LeafNode root
-	 * and a String sequence value that will be added to this tree.
-	 * Handles the case when the root is a LeafNode.
-	 * 
-	 * @param root - the LeafNode to build from
-	 * @param sequence - the String value sequence to add
-	 * @return the level at which the sequence was added
-	 */
-	private int handleLeafSituation(String sequence) {
-		
-		String sequence2 = ((LeafNode) root).getSequence();
-		root = new InternalNode(fw, 0);
-		InternalNode focusNode = (InternalNode) root;
-
-		int i;
-		for (i = 0; (i < sequence.length() || i < sequence2.length()); i++) {
-			if (i == sequence.length()) {
-				focusNode.addNode(new LeafNode(sequence2, i + 1), sequence2.charAt(i));
-				focusNode.addNode(new LeafNode(sequence, i + 1), 'E');
-				break;
-			}
-			if (i == sequence2.length()) {
-				focusNode.addNode(new LeafNode(sequence, i + 1), sequence.charAt(i));
-				focusNode.addNode(new LeafNode(sequence2, i + 1), 'E');
-				break;
-			}
-			if (sequence.charAt(i) != sequence2.charAt(i)) {
-				focusNode.addNode(new LeafNode(sequence, i + 1), sequence.charAt(i));
-				focusNode.addNode(new LeafNode(sequence2, i + 1), sequence2.charAt(i));
-				break;
-			}
-			InternalNode newFocus = new InternalNode(fw, i + 1);
-			focusNode.addNode(newFocus, sequence.charAt(i));
-			focusNode = newFocus;
-		}
-		return i + 1;
-	}
-
+	
 	/**
 	 * Recursive helper method to insert a sequence id into the
 	 * tree.  Uses the current node to insert if the child is
@@ -118,71 +88,39 @@ public class DNATree {
 	 */
 	private int insert(String sequence, InternalNode node, Handle handle)
 	{
-		DNATreeNode child = node.getNode(sequence.charAt(node.getLevel()));
+		// Determine position
+		char position;
+		if (node.getLevel() < sequence.length()) {
+			position = sequence.charAt(node.getLevel());
+		} else {
+			position = 'E';
+		}
+		
+		DNATreeNode child = node.getNode(position);
 
+		// Handle flyweight case
 		if (child instanceof FlyweightNode) {
-			node.addNode(new LeafNode(sequence, node.getLevel() + 1, handle), sequence.charAt(node.getLevel()));
+			node.addNode(new LeafNode(sequence, node.getLevel() + 1, handle), position);
 			return node.getLevel() + 1;
 		}
-
-		if (child instanceof LeafNode) {
-			return replaceNodeWithTree(node, sequence);
-		}
-
-		return insert(sequence, (InternalNode)child);
-	}
-
-	/**
-	 * Private helper method for the insert operation.
-	 * Will build a tree at the specified node to replace
-	 * the leaf node in question with a tree. Depending on
-	 * how many characters the sequence and the leaf node share,
-	 * the height of the tree may differ.
-	 * 
-	 * @param node - the internal node above the leaf node
-	 * @param sequence - the string sequence for DNA
-	 * @return the level of the new inserted node
-	 */
-	private int replaceNodeWithTree(InternalNode node, String sequence)
-	{
-		LeafNode save = (LeafNode)node.getNode(sequence.charAt(node.getLevel()));
-		String pattern = save.getSequence();
-		int count = save.getLevel();
-		InternalNode newNode = new InternalNode(fw, count);
-		node.addNode(newNode, sequence.charAt(node.getLevel()));
-		node = newNode;
 		
-		if (count == sequence.length()) {
-			save.setLevel(count + 1);
-			node.addNode(save, pattern.charAt(count));
-			node.addNode(new LeafNode(sequence, count + 1), 'E');
-			return count + 1;
+		// Handle leafnode case
+		if (child instanceof LeafNode) {
+			
+			// Check if the sequence is already in the tree
+			if (((LeafNode) child).getSequence().equals(sequence)) {
+				return -1;
+			}
+			
+			// Replace leaf node with internal node and downshift
+			InternalNode temp = new InternalNode(fw, child.getLevel());
+			temp.addNode(child, ((LeafNode) child).getSequence().charAt(child.getLevel()));
+			child.setLevel(child.getLevel() + 1);
+			node.addNode(temp, sequence.charAt(node.getLevel()));
+			child = temp;
 		}
 
-		while (count < sequence.length() && count < pattern.length()) {
-			if (pattern.charAt(count) == sequence.charAt(count)) {
-				InternalNode temp = new InternalNode(fw, count);
-				node.addNode(temp, sequence.charAt(count));
-				node = temp;
-				count++;
-			} else {
-				save.setLevel(count + 1);
-				node.addNode(save, pattern.charAt(count));
-				node.addNode(new LeafNode(sequence, count + 1), sequence.charAt(count));
-				return count + 1;
-			}
-		}
-		if (count == sequence.length()) {
-			save.setLevel(count + 1);
-			node.addNode(save, pattern.charAt(count));
-			node.addNode(new LeafNode(sequence, count + 1), 'E');
-		}
-		else if (count == pattern.length()) {
-			save.setLevel(count + 1);
-			node.addNode(new LeafNode(sequence, count + 1), sequence.charAt(count));
-			node.addNode(save, 'E');
-		}
-		return count;
+		return insert(sequence, (InternalNode)child, handle);
 	}
 
 	/**
@@ -265,7 +203,6 @@ public class DNATree {
 		return handle;
 	}
 
-	// TODO Fix the search methods
 	/**
 	 * Method to search the tree for a particular pattern.  There
 	 * are two types of patterns allowed: (1) prefix search, and
@@ -277,7 +214,6 @@ public class DNATree {
 	 * @return the number of nodes visited and search results
 	 */
 	public String search(String pattern) {
-
 		
 		// Check for special root case
 		if (root instanceof FlyweightNode) {
@@ -301,11 +237,13 @@ public class DNATree {
 		if (root instanceof LeafNode) {
 			String sequence = ((LeafNode)root).getSequence();
 			if (!exact && sequence.substring(0, pattern.length()).equals(pattern)) {
-				output += "Sequence: " + pattern;
+				output += "Key: " + sequence + "\n";
+				output += ((LeafNode)root).getHandle() + "\n";
 			} else if (exact && sequence.equals(pattern)) {
-				output += "Sequence: " + pattern;
+				output += "Sequence: " + sequence + "\n";
+				output += ((LeafNode)root).getHandle() + "\n";
 			} else {
-				output += "No sequence found";
+				output += "No sequence found\n";
 			}
 		} else {
 			// Search for the closest parent node for our pattern
@@ -323,6 +261,7 @@ public class DNATree {
 
 			char position;
 			
+			// Determine the position
 			if (count == pattern.length()) {
 				position = 'E';
 			} else {
@@ -333,27 +272,28 @@ public class DNATree {
 			
 			if (exact) {
 				if (nextNode instanceof LeafNode && ((LeafNode)nextNode).getSequence().equals(pattern)) {
-					output += "Sequence: " + ((LeafNode)nextNode).getSequence();
+					output += "Key: " + ((LeafNode)nextNode).getSequence() + "\n";
+					output += ((LeafNode)nextNode).getHandle() + "\n";
 				} else {
-					output += "No sequence found";
+					output += "No sequence found\n";
 				}
 				visited[0]++;
 			} else {
 				if (position != 'E' && nextNode instanceof LeafNode && ((LeafNode)nextNode).getSequence().substring(0, pattern.length()).equals(pattern)) {
-					output += "Sequence: " + ((LeafNode)nextNode).getSequence();
+					output += "Key: " + ((LeafNode)nextNode).getSequence() + "\n";
+					output += ((LeafNode)nextNode).getHandle() + "\n";
 					visited[0]++;
 				} else if (position == 'E') {
 					output += printAllLeafNodes((InternalNode)focus, visited);
 					visited[0]--;
-					output = output.substring(0, output.length() - 1);
 				} else {
-					output += "No sequence found";
+					output += "No sequence found\n";
 					visited[0]++;
 				}
 			}
 		}
 
-		return "Number of nodes visited: " + visited[0] + output + "\n";
+		return "Number of nodes visited: " + visited[0] + output;
 	}
 
 	/**
@@ -370,7 +310,8 @@ public class DNATree {
 
 		// Handle the A child
 		if (node.getNode('A') instanceof LeafNode) {
-			output += "Sequence: " + ((LeafNode)node.getNode('A')).getSequence() + "\n";
+			output += "Key: " + ((LeafNode)node.getNode('A')).getSequence() + "\n";
+			output += ((LeafNode)node.getNode('A')).getHandle() + "\n";
 			visited[0]++;
 		} else if (node.getNode('A') instanceof InternalNode) {
 			output += printAllLeafNodes((InternalNode)node.getNode('A'), visited);
@@ -380,7 +321,8 @@ public class DNATree {
 
 		// Handle the C child
 		if (node.getNode('C') instanceof LeafNode) {
-			output += "Sequence: " + ((LeafNode)node.getNode('C')).getSequence() + "\n";
+			output += "Key: " + ((LeafNode)node.getNode('C')).getSequence() + "\n";
+			output += ((LeafNode)node.getNode('C')).getHandle() + "\n";
 			visited[0]++;
 		} else if (node.getNode('C') instanceof InternalNode) {
 			output += printAllLeafNodes((InternalNode)node.getNode('C'), visited);
@@ -390,7 +332,8 @@ public class DNATree {
 
 		// Handle the G child
 		if (node.getNode('G') instanceof LeafNode) {
-			output += "Sequence: " + ((LeafNode)node.getNode('G')).getSequence() + "\n";
+			output += "Key: " + ((LeafNode)node.getNode('G')).getSequence() + "\n";
+			output += ((LeafNode)node.getNode('G')).getHandle() + "\n";
 			visited[0]++;
 		} else if (node.getNode('G') instanceof InternalNode) {
 			output += printAllLeafNodes((InternalNode)node.getNode('G'), visited);
@@ -400,7 +343,8 @@ public class DNATree {
 
 		// Handle the T child
 		if (node.getNode('T') instanceof LeafNode) {
-			output += "Sequence: " + ((LeafNode)node.getNode('T')).getSequence() + "\n";
+			output += "Key: " + ((LeafNode)node.getNode('T')).getSequence() + "\n";
+			output += ((LeafNode)node.getNode('T')).getHandle() + "\n";
 			visited[0]++;
 		} else if (node.getNode('T') instanceof InternalNode) {
 			output += printAllLeafNodes((InternalNode)node.getNode('T'), visited);
@@ -410,7 +354,8 @@ public class DNATree {
 
 		// Handle exact child
 		if (node.getNode('E') instanceof LeafNode) {
-			output += "Sequence: " + ((LeafNode)node.getNode('E')).getSequence() + "\n";
+			output += "Key: " + ((LeafNode)node.getNode('E')).getSequence() + "\n";
+			output += ((LeafNode)node.getNode('E')).getHandle() + "\n";
 		}
 
 		visited[0]++;
