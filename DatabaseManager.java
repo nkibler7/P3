@@ -38,12 +38,13 @@ public class DatabaseManager {
 	 * and add it to the end of the file.
 	 * 
 	 * @param sequence - the sequence to insert
+	 * @param length - the length of the given sequence
 	 * @return - the Handle for the given sequence
 	 */
-	public Handle insert(String sequence) {
+	public Handle insert(String sequence, int length) {
 		// TODO implement insert
 		
-		return null;
+		return new Handle(0, 0);
 	}
 	
 	/**
@@ -69,7 +70,7 @@ public class DatabaseManager {
 	public String getEntry(Handle handle) {
 		// TODO implement getEntry
 		
-		return "NYI";
+		return "NYI: getEntry(Handle handle)";
 	}
 	
 	/**
@@ -81,6 +82,6 @@ public class DatabaseManager {
 	public String toString() {
 		// TODO implement toString
 		
-		return "NYI";
+		return "NYI: toString()";
 	}
 }

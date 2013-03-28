@@ -112,9 +112,17 @@ public class DNATree {
 				return -1;
 			}
 			
+			// Determine position
+			String pattern = ((LeafNode)child).getSequence();
+			if (child.getLevel() + 1 < pattern.length()) {
+				position = pattern.charAt(node.getLevel());
+			} else {
+				position = 'E';
+			}
+			
 			// Replace leaf node with internal node and downshift
 			InternalNode temp = new InternalNode(fw, child.getLevel());
-			temp.addNode(child, ((LeafNode) child).getSequence().charAt(child.getLevel()));
+			temp.addNode(child, position);
 			child.setLevel(child.getLevel() + 1);
 			node.addNode(temp, sequence.charAt(node.getLevel()));
 			child = temp;
@@ -371,7 +379,9 @@ public class DNATree {
 	 * @return - the string printing of the sequence id's
 	 */
 	public String toString() {
-		return "Sequence IDs:\n" + print(root);
+		String output = "Sequence IDs:\n";
+		output += print(root);
+		return output.substring(0, output.length() - 1);
 	}
 	
 	/**
@@ -385,7 +395,7 @@ public class DNATree {
 		
 		// Check if empty node
 		if (node instanceof FlyweightNode) {
-			return null;
+			return "";
 		}
 		
 		// Check if leaf node

@@ -46,7 +46,7 @@ public class P3 {
 	 * lowercase commands, but require uppercase sequences, with any
 	 * amount of spacing between arguments.
 	 */
-	private static final String INSERT_PATTERN = "^ *(insert|INSERT) *[ACGT]+ *[1-9][0-9]* *$";
+	private static final String INSERT_PATTERN = "^ *(insert|INSERT) *[ACGT]+ *[0-9]+ *$";
 	private static final String REMOVE_PATTERN = "^ *(remove|REMOVE) *[ACGT]+ *$";
 	private static final String PRINT_PATTERN = "^ *(print|PRINT) *$";
 	private static final String SEARCH_PATTERN = "^ *(search|SEARCH) *[ACGT]+[$]? *$";
@@ -57,7 +57,7 @@ public class P3 {
 	 * with the database manager.
 	 */
 	private static final String KEY_PATTERN = "^Key: [ACGT]+$";
-	private static final String HANDLE_PATTERN = "^\\[[0-9]+, [1-9][0-9]*\\]$";
+	private static final String HANDLE_PATTERN = "^\\[[0-9]+, [0-9]+\\]$";
 	
 	/**
 	 * Member field for DNATree tree.  This tree represents the
@@ -108,16 +108,26 @@ public class P3 {
 			while ((line = in.readLine()) != null) {
 				if (line.matches(INSERT_PATTERN)) {
 					
-					// Parse out the sequence id from the command line
-					int index = Math.max(line.indexOf("r"), line.indexOf("R")) + 2;
-					String sequence = line.substring(index);
+					// Parse out the sequence id and length from the command line
+					int begin = Math.max(line.indexOf("r"), line.indexOf("R")) + 2;
+					int end = Math.max(Math.max(Math.max(line.lastIndexOf('A'),
+							line.lastIndexOf('C')), line.lastIndexOf('G')),
+							line.lastIndexOf('T')) + 1;
+					String sequence = line.substring(begin, end);
 					sequence = sequence.trim();
+					
+					int length = Integer.parseInt(line.substring(end).trim());
+					
+					if (length <= 0) {
+						System.out.println("Length less than zero.");
+						continue;
+					}
 					
 					// Get the next line for the sequence
 					String entry = in.readLine();
 					
 					// Add to the dbm
-					Handle handle = dbm.insert(entry);
+					Handle handle = dbm.insert(entry, length);
 					
 					// Add to tree
 					int result = tree.insert(sequence, handle);
@@ -128,6 +138,7 @@ public class P3 {
 					} else {
 						System.out.println("Sequence " + sequence + " inserted at level " + result + ".");
 					}
+					System.out.println();
 				} else if (line.matches(REMOVE_PATTERN)) {
 					
 					// Parse out the sequence id from the command line
@@ -141,6 +152,7 @@ public class P3 {
 					// Remove sequence from dbm
 					if(handle == null) {
 						System.out.println("Sequence " + sequence + " not found in tree.");
+						System.out.println();
 					} else {
 						dbm.remove(handle);
 					}
@@ -151,6 +163,7 @@ public class P3 {
 					
 					// Output free blocks
 					System.out.println(dbm);
+					System.out.println();
 				} else if (line.matches(SEARCH_PATTERN)) {
 					
 					// Parse out the sequence id from the command line
@@ -162,11 +175,12 @@ public class P3 {
 					String results = tree.search(sequence);
 					Scanner scan = new Scanner(results);
 					String output = scan.nextLine() + "\n";
-					
+
 					// Augment output with results from dbm
 					String entry;
 					int offset, length;
 					Handle handle;
+					
 					while (scan.hasNextLine()) {
 						entry = scan.nextLine();
 						
@@ -175,8 +189,8 @@ public class P3 {
 						} else if (entry.matches(HANDLE_PATTERN)) {
 							
 							// Parse out offset and length
-							offset = Integer.parseInt(entry.substring(entry.indexOf('['), entry.indexOf(',')));
-							length = Integer.parseInt(entry.substring(entry.indexOf(','), entry.indexOf(']')));
+							offset = Integer.parseInt(entry.substring(entry.indexOf('[') + 1, entry.indexOf(',')));
+							length = Integer.parseInt(entry.substring(entry.indexOf(',') + 2, entry.indexOf(']')));
 							
 							// Create handle and use it to query database
 							handle = new Handle(offset, length);
@@ -187,8 +201,9 @@ public class P3 {
 					}
 					
 					scan.close();
-					
-					System.out.println(output);
+		
+					System.out.println(output.substring(0, output.length() - 1));
+					System.out.println();
 				} else {
 					continue;
 				}
