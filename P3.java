@@ -123,6 +123,7 @@ public class P3 {
 					int result = tree.insert(sequence, handle);
 					
 					if(result < 0) {
+						dbm.remove(handle);
 						System.out.println("Sequence " + sequence + " already in tree.");
 					} else {
 						System.out.println("Sequence " + sequence + " inserted at level " + result + ".");
