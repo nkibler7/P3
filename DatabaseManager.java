@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.LinkedList;
 
@@ -42,9 +43,93 @@ public class DatabaseManager {
 	 * @return - the Handle for the given sequence
 	 */
 	public Handle insert(String sequence, int length) {
-		// TODO implement insert
-		
-		return new Handle(0, 0);
+		// Calculate number of bytes needed to store this sequence
+		int bytesNeeded = (int) Math.ceil(length / 4);
+		for (Handle freeBlock: free) {
+			int offset = freeBlock.getOffset();
+			if (freeBlock.getLength() >= bytesNeeded) {
+				try {
+					file.seek(offset);
+					file.write(buildByteArray(sequence, bytesNeeded));
+				} catch (IOException e) {
+					System.err.println("Problem writing to file. See stack trace for details.");
+					e.printStackTrace();
+					return null;
+				}
+				if (freeBlock.getLength() == bytesNeeded) {
+					free.remove(freeBlock);
+				}
+				else {
+					free.set(free.indexOf(freeBlock), new Handle(offset + bytesNeeded, freeBlock.getLength() - bytesNeeded));
+				}
+				return new Handle(offset, bytesNeeded);
+			}
+		}
+		// No valid free space so append to end of file
+		//TODO: Improve this. What about if we have a small free block at the end of the file? Extend only amount necessary.
+		int oldLength = -1;
+		try {
+			oldLength = (int) file.length();
+			file.setLength(oldLength + bytesNeeded);
+			file.seek(oldLength);
+			file.write(buildByteArray(sequence, bytesNeeded));
+		} catch (IOException e) {
+			System.err.println("Problem writing to file. See stack trace for details.");
+			e.printStackTrace();
+		}
+		return new Handle(oldLength, bytesNeeded);
+	}
+	
+	/**
+	 * Builds a byte array of the given sequence represented in binary.
+	 * @param sequence - the String sequence to build from
+	 * @param bytesNeeded - the number of bytes needed to represent the sequence
+	 * @return a byte array that should be written to the file
+	 */
+	private byte[] buildByteArray(String sequence, int bytesNeeded) {
+		byte[] array = new byte[bytesNeeded];
+		int currentByte = 0, count = 0;
+		for (int i = 0; i < sequence.length(); i++) {
+			int mod = sequence.length() % 4;
+			switch (mod) {
+			case 0:
+				currentByte = (getCharValue(sequence.charAt(i))) << 3;
+				break;
+			case 1:
+				currentByte |= (getCharValue(sequence.charAt(i))) << 2;
+				break;
+			case 2:
+				currentByte |= (getCharValue(sequence.charAt(i))) << 1;
+				break;
+			case 3:
+				currentByte |= getCharValue(sequence.charAt(i));
+				array[count] = (byte) currentByte;
+				count++;
+				break;
+			}
+		}
+		// Makes sure we set the last byte, in case 4 does not divide sequence.length()
+		array[count] = (byte) currentByte;
+		return array;
+	}
+	
+	/**
+	 * Returns the binary representation for the given character.
+	 * @param c - the character to convert to binary
+	 * @return the binary value of the given character
+	 */
+	private byte getCharValue(char c) {
+		c = Character.toUpperCase(c);
+		if (c == 'A')
+			return 0;
+		if (c == 'C')
+			return 1;
+		if (c == 'G')
+			return 10;
+		if (c == 'T')
+			return 11;
+		System.err.println(c + " is not a valid character for this sequence.");
+		return -1;
 	}
 	
 	/**
