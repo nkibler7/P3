@@ -17,14 +17,14 @@ public class DatabaseManager {
 	 * with given offsets and lengths.
 	 */
 	RandomAccessFile file;
-	
+
 	/**
 	 * Linked List for keeping track of all free memory
 	 * blocks.  Each block is represented by a Handle,
 	 * with a given offset and length.
 	 */
 	LinkedList<Handle> free;
-	
+
 	/**
 	 * Basic constructor for the DatabaseManager class.
 	 * Will initialize all member fields appropriately.
@@ -43,7 +43,7 @@ public class DatabaseManager {
 		}
 		free = new LinkedList<Handle>();
 	}
-	
+
 	/**
 	 * Method to insert a given sequence into the first
 	 * free memory block.  If there are no free memory
@@ -78,12 +78,20 @@ public class DatabaseManager {
 			}
 		}
 		// No valid free space so append to end of file
-		//TODO: Improve this. What about if we have a small free block at the end of the file? Extend only amount necessary.
 		int oldLength = -1;
 		try {
 			oldLength = (int) file.length();
-			file.setLength(oldLength + bytesNeeded);
-			file.seek(oldLength);
+			Handle fb = freeBlockAtEnd();
+			if (fb != null) {
+				// If free block at end, extend length to only amount we need and remove free block
+				file.setLength(fb.getOffset() + bytesNeeded);
+				file.seek(fb.getOffset());
+				free.remove(fb);
+			}
+			else {
+				file.setLength(oldLength + bytesNeeded);
+				file.seek(oldLength);
+			}
 			file.write(buildByteArray(sequence, bytesNeeded));
 		} catch (IOException e) {
 			System.err.println("Problem writing to file. See stack trace for details.");
@@ -92,6 +100,24 @@ public class DatabaseManager {
 		return new Handle(oldLength, bytesNeeded);
 	}
 	
+	/**
+	 * Determines if there is a free block of memory at the end of the file.
+	 * @return the Handle object of the free block at the end of the file, or null if none
+	 */
+	private Handle freeBlockAtEnd() {
+		for (Handle h: free) {
+			try {
+				if (file.length() - h.getLength() == h.getOffset()) {
+					return h;
+				}
+			} catch (IOException e) {
+				System.err.println("Could not find file length.");
+				e.printStackTrace();
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * Builds a byte array of the given sequence represented in binary.
 	 * @param sequence - the String sequence to build from
@@ -126,7 +152,7 @@ public class DatabaseManager {
 		}
 		return array;
 	}
-	
+
 	/**
 	 * Returns the binary representation for the given character.
 	 * @param c - the character to convert to binary
@@ -145,7 +171,7 @@ public class DatabaseManager {
 		System.err.println(c + " is not a valid character for this sequence.");
 		return -1;
 	}
-	
+
 	/**
 	 * Method to remove a sequence from the database.
 	 * Creates a new free memory block in the place of
@@ -157,12 +183,28 @@ public class DatabaseManager {
 		for (Handle h: free) {
 			if (handle.getOffset() < h.getOffset()) {
 				free.add(free.indexOf(h), handle);
+				mergeFreeBlocks();
 				return;
 			}
 		}
 		free.add(handle);
 	}
-	
+
+	/**
+	 * Merges adjacent free memory blocks together.
+	 */
+	private void mergeFreeBlocks() {
+		for (int i = 0; i < free.size() - 1; i++) {
+			Handle current = free.get(i), next = free.get(i+1);
+			if (current.getOffset() + current.getLength() == next.getOffset()) {
+				int newLength = current.getLength() + next.getLength();
+				free.remove(next);
+				free.set(i, new Handle(current.getOffset(), newLength));
+				i--;
+			}
+		}
+	}
+
 	/**
 	 * Method to retrieve a DNA sequence using a given
 	 * handle.  Will give the bytes in memory regardless
@@ -187,7 +229,7 @@ public class DatabaseManager {
 		}
 		return result;
 	}
-	
+
 	/**
 	 * Returns the binary representation for the given character.
 	 * @param c - the character to convert to binary
@@ -208,7 +250,7 @@ public class DatabaseManager {
 		}
 		return res;
 	}
-	
+
 	/**
 	 * Method to produce a string representation of all
 	 * free memory blocks.
