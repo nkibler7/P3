@@ -210,8 +210,10 @@ public class DatabaseManager {
 	 * @return - all elements of the linked list free
 	 */
 	public String toString() {
-		// TODO implement toString
-		
-		return "NYI: toString()";
+		String ret = "";
+		for (Handle h: free) {
+			ret += h.toString();
+		}
+		return ret.isEmpty() ? "No free memory blocks.": ret;
 	}
 }
