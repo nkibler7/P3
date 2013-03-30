@@ -1,6 +1,7 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.Arrays;
 import java.util.LinkedList;
 
 /**
@@ -167,9 +168,40 @@ public class DatabaseManager {
 	 * @return - the sequence in the memory location
 	 */
 	public String getEntry(Handle handle) {
-		// TODO implement getEntry
-		
-		return "NYI: getEntry(Handle handle)";
+		byte[] bytes = new byte[handle.getLength()];
+		try {
+			file.seek(handle.getOffset());
+			file.read(bytes);
+		} catch (IOException e) {
+			System.err.println("Cannot read byte sequence for given handle.");
+			e.printStackTrace();
+		}
+		String result = "";
+		for (byte b: bytes) {
+			result += getStrFromBin(b);
+		}
+		return result;
+	}
+	
+	/**
+	 * Returns the binary representation for the given character.
+	 * @param c - the character to convert to binary
+	 * @return the binary value of the given character
+	 */
+	private String getStrFromBin(byte b) {
+		int[] charsInByte = {(b & 0xC0) >> 6, (b & 0x30) >> 4, (b & 0x0C) >> 2, (b & 0x03)};
+		String res = "";
+		for (int c: charsInByte) {
+			if (c == 0)
+				res += "A";
+			else if (c == 1)
+				res += "C";
+			else if (c == 2)
+				res += "G";
+			else if (c == 3)
+				res += "T";
+		}
+		return res;
 	}
 	
 	/**
