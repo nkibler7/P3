@@ -154,7 +154,13 @@ public class DatabaseManager {
 	 * @param handle - the given Handle for the sequence
 	 */
 	public void remove(Handle handle) {
-		// TODO implement remove
+		for (Handle h: free) {
+			if (handle.getOffset() < h.getOffset()) {
+				free.add(free.indexOf(h), handle);
+				return;
+			}
+		}
+		free.add(handle);
 	}
 	
 	/**
