@@ -1,3 +1,4 @@
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.LinkedList;
@@ -29,7 +30,18 @@ public class DatabaseManager {
 	 * Will initialize all member fields appropriately.
 	 */
 	public DatabaseManager() {
-		// TODO implement constructor
+		try {
+			file = new RandomAccessFile("biofile.bin", "rw");
+			// Make sure we are overwriting file.
+			file.setLength(0);
+		} catch (FileNotFoundException e) {
+			System.err.println("Could not find/create file.");
+			e.printStackTrace();
+		} catch (IOException e) {
+			System.err.println("Could not overwrite file.");
+			e.printStackTrace();
+		}
+		free = new LinkedList<Handle>();
 	}
 	
 	/**
@@ -44,7 +56,7 @@ public class DatabaseManager {
 	 */
 	public Handle insert(String sequence, int length) {
 		// Calculate number of bytes needed to store this sequence
-		int bytesNeeded = (int) Math.ceil(length / 4);
+		int bytesNeeded = (int) Math.ceil((double)(length / 4.0));
 		for (Handle freeBlock: free) {
 			int offset = freeBlock.getOffset();
 			if (freeBlock.getLength() >= bytesNeeded) {
@@ -90,16 +102,16 @@ public class DatabaseManager {
 		byte[] array = new byte[bytesNeeded];
 		int currentByte = 0, count = 0;
 		for (int i = 0; i < sequence.length(); i++) {
-			int mod = sequence.length() % 4;
+			int mod = i % 4;
 			switch (mod) {
 			case 0:
-				currentByte = (getCharValue(sequence.charAt(i))) << 3;
+				currentByte = (getCharValue(sequence.charAt(i))) << 6;
 				break;
 			case 1:
-				currentByte |= (getCharValue(sequence.charAt(i))) << 2;
+				currentByte |= (getCharValue(sequence.charAt(i))) << 4;
 				break;
 			case 2:
-				currentByte |= (getCharValue(sequence.charAt(i))) << 1;
+				currentByte |= (getCharValue(sequence.charAt(i))) << 2;
 				break;
 			case 3:
 				currentByte |= getCharValue(sequence.charAt(i));
@@ -109,7 +121,9 @@ public class DatabaseManager {
 			}
 		}
 		// Makes sure we set the last byte, in case 4 does not divide sequence.length()
-		array[count] = (byte) currentByte;
+		if (count == bytesNeeded - 1) {
+			array[count] = (byte) currentByte;
+		}
 		return array;
 	}
 	
@@ -118,16 +132,16 @@ public class DatabaseManager {
 	 * @param c - the character to convert to binary
 	 * @return the binary value of the given character
 	 */
-	private byte getCharValue(char c) {
+	private int getCharValue(char c) {
 		c = Character.toUpperCase(c);
 		if (c == 'A')
-			return 0;
+			return 0b00;
 		if (c == 'C')
-			return 1;
+			return 0b01;
 		if (c == 'G')
-			return 10;
+			return 0b10;
 		if (c == 'T')
-			return 11;
+			return 0b11;
 		System.err.println(c + " is not a valid character for this sequence.");
 		return -1;
 	}
